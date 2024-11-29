@@ -1,4 +1,4 @@
-import tensorflow as tf
+import tensorflow as tf 
 import numpy as np
 import cv2
 from sklearn.preprocessing import LabelBinarizer
@@ -6,9 +6,14 @@ from sklearn.preprocessing import LabelBinarizer
 # Load the saved model
 model = tf.keras.models.load_model('model/Offline_Handwritten.h5')
 
-# Load the LabelBinarizer (make sure it is the same one used during training)
+# Class labels based on your training data (corresponding to your Class to Index Mapping)
+classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 
+           'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 
+           'X', 'Y', 'Z']
+
+# Initialize LabelBinarizer and fit it with class names
 LB = LabelBinarizer()
-LB.fit(["your", "label", "classes"])  # Fit the label binarizer with your labels during training
+LB.fit(classes)
 
 def predict_image(image_path):
     """
