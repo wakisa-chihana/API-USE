@@ -64,3 +64,10 @@ def extract_characters(image_path):
             characters.append(pred_label[0])  # Add the predicted character to the list
 
     return characters
+
+def get_word(letters):
+    """
+    Joins the list of individual characters into a single word.
+    """
+    word = "".join(letters)
+    return word
