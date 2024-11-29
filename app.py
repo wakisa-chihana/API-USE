@@ -2,8 +2,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
 import shutil
 import os
-from model import extract_characters
 import cv2
+from model import model, LB, get_letters, get_word  # Import necessary functions
 
 # Initialize FastAPI
 app = FastAPI()
@@ -29,10 +29,11 @@ async def predict(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
         
         # Extract characters and predict the word
-        characters = extract_characters(image_path)
-        if not characters:
+        letters, processed_image = get_letters(image_path)
+        if not letters:
             raise HTTPException(status_code=400, detail="No characters detected or prediction failed.")
-        word = "".join(characters)  # Join the characters to form the word
+        
+        word = get_word(letters)  # Join the characters to form the word
         
         # Optionally, delete the uploaded image after processing
         os.remove(image_path)
