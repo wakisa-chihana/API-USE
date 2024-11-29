@@ -4,23 +4,30 @@ from io import BytesIO
 from PIL import Image
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing import image
-import tensorflow as tf
 
-# Load your pre-trained model (make sure the model is saved)
-model = tf.keras.models.load_model('model.h5')  # Update with your actual model path
+# Load the model at startup
+model = None
 
 # Create FastAPI app
 app = FastAPI()
 
+# Function to load the model
+def load_trained_model():
+    global model
+    model = tf.keras.models.load_model('model.h5')  # Ensure correct path
+
+# Load model when the app starts
+@app.on_event("startup")
+async def startup_event():
+    load_trained_model()
+
 # Image preprocessing function
 def preprocess_image(img: Image.Image):
-    img = img.convert("L")  # Convert to grayscale if it's not
+    img = img.convert("L")  # Convert to grayscale
     img = img.resize((28, 28))  # Resize to 28x28 pixels
     img_array = np.array(img)  # Convert image to numpy array
-    img_array = img_array / 255.0  # Normalize
-    img_array = img_array.reshape(1, 28, 28, 1)  # Reshape to fit the model input
+    img_array = img_array / 255.0  # Normalize to range [0, 1]
+    img_array = img_array.reshape(1, 28, 28, 1)  # Reshape for model input
     return img_array
 
 # Prediction function
@@ -44,9 +51,8 @@ async def predict_image(file: UploadFile = File(...)):
         # Get prediction
         predicted_class = predict(img_array)
 
-        # Return the prediction as JSON
-        return JSONResponse(content={"predicted_class": predicted_class})
+        # Return the prediction as JSON (convert numpy.int64 to Python int)
+        return JSONResponse(content={"predicted_class": int(predicted_class)})
 
     except Exception as e:
         return JSONResponse(status_code=400, content={"message": str(e)})
-
