@@ -14,7 +14,7 @@ app = FastAPI()
 # Function to load the model
 def load_trained_model():
     global model
-    model = tf.keras.models.load_model('model.h5')  # Ensure correct path
+    model = tf.keras.models.load_model('handwritten_model.h5')  # Ensure correct path
 
 # Load model when the app starts
 @app.on_event("startup")
