@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 import shutil
 import os
 import cv2
-from model import model, LB, get_letters, get_word  # Import necessary functions
+from model import extract_characters, get_word  # Import the necessary functions
 
 # Initialize FastAPI
 app = FastAPI()
@@ -29,7 +29,7 @@ async def predict(file: UploadFile = File(...)):
             raise HTTPException(status_code=400, detail="Uploaded file is not a valid image")
         
         # Extract characters and predict the word
-        letters, processed_image = get_letters(image_path)
+        letters = extract_characters(image_path)
         if not letters:
             raise HTTPException(status_code=400, detail="No characters detected or prediction failed.")
         
