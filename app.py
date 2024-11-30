@@ -1,8 +1,6 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Request
+from fastapi import FastAPI, File, UploadFile
 from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
+from fastapi.middleware.cors import CORSMiddleware  # Import CORS middleware
 import shutil
 import os
 from model import extract_characters, get_word  # Import the necessary functions
@@ -14,35 +12,19 @@ app = FastAPI()
 UPLOAD_DIR = "images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Configure CORS to allow requests from all origins (you can restrict this if needed)
+# Configure CORS to allow requests from all origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins (change this to specific domains if necessary)
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
     allow_headers=["*"],  # Allow all headers
 )
 
-# Custom 404 error handler
-@app.exception_handler(StarletteHTTPException)
-async def custom_404_handler(request: Request, exc: StarletteHTTPException):
-    if exc.status_code == 404:
-        return JSONResponse(
-            status_code=404,
-            content={"message": "The resource you are looking for was not found."}
-        )
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"message": exc.detail}
-    )
-
-# You can also handle other types of validation errors
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    return JSONResponse(
-        status_code=422,
-        content={"message": "Validation error occurred.", "errors": exc.errors()}
-    )
+# Root endpoint to display a welcoming message
+@app.get("/")
+async def welcome():
+    return {"message": "Welcome to the Handwritten Classification API!"}
 
 @app.post("/predict/")
 async def predict(file: UploadFile = File(...)):
