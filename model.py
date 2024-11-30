@@ -1,78 +1,100 @@
-import tensorflow as tf 
-import numpy as np
+from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.middleware.cors import CORSMiddleware
+import shutil
+import os
 import cv2
-from sklearn.preprocessing import LabelBinarizer
+from model import extract_characters, get_word  # Import the correct functions
 
-# Load the saved model
-model = tf.keras.models.load_model('model/Offline_Handwritten.h5')
+# Initialize FastAPI
+app = FastAPI()
 
-# Class labels based on your training data (corresponding to your Class to Index Mapping)
-classes = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 
-           'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 
-           'X', 'Y', 'Z']
+# Directory to store uploaded images
+UPLOAD_DIR = "images"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Initialize LabelBinarizer and fit it with class names
-LB = LabelBinarizer()
-LB.fit(classes)
+# Configure CORS to allow requests from all origins
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all HTTP methods
+    allow_headers=["*"],  # Allow all headers
+)
 
-def predict_image(image_path):
+# Root endpoint to display a welcoming message
+@app.get("/")
+async def welcome():
+    return {"message": "Welcome to the Handwritten Classification API!"}
+
+def draw_bounding_box(image_path, bboxes):
     """
-    Function to predict a handwritten character from an image.
-    """
-    # Load and preprocess the image
-    img = cv2.imread(image_path, 0)
-    img = cv2.resize(img, (32, 32))
-    img = img.astype("float32") / 255.0
-    img = np.expand_dims(img, axis=-1)
-    img = np.expand_dims(img, axis=0)
+    Draw bounding boxes on the image at the given path and save the modified image.
     
-    # Predict the character class
-    pred = model.predict(img)
-    pred_label = LB.inverse_transform(pred)
+    Args:
+    - image_path (str): Path to the uploaded image.
+    - bboxes (list of tuples): List of bounding box coordinates (x, y, width, height).
     
-    return pred_label[0]  # Return the predicted label
-
-def extract_characters(image_path):
+    Returns:
+    - str: Path to the saved image with bounding boxes drawn.
     """
-    Extracts individual characters from the image using contour detection.
-    """
-    # Load the image and convert to grayscale
+    # Read the image
     image = cv2.imread(image_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
-    # Thresholding to binarize the image
-    _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
+    # Draw bounding boxes (assuming bboxes is a list of (x, y, w, h))
+    for (x, y, w, h) in bboxes:
+        # Draw a rectangle: (x, y) is the top-left corner, (x+w, y+h) is the bottom-right corner
+        cv2.rectangle(image, (x, y), (x + w, y + h), (0, 255, 0), 2)  # Green color, 2px thickness
     
-    # Dilate to fill gaps and make contours easier to detect
-    dilated = cv2.dilate(thresh, None, iterations=2)
-
-    # Find contours
-    cnts, _ = cv2.findContours(dilated.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    # Save the image with bounding boxes
+    output_path = image_path.replace(".jpg", "_modified.jpg")  # You can change the extension if needed
+    cv2.imwrite(output_path, image)
     
-    # Sort contours from left to right
-    cnts = sorted(cnts, key=lambda c: cv2.boundingRect(c)[0])
+    return output_path
 
-    characters = []
-    for c in cnts:
-        if cv2.contourArea(c) > 10:  # Ignore small contours
-            x, y, w, h = cv2.boundingRect(c)
-            roi = gray[y:y + h, x:x + w]
-            thresh = cv2.threshold(roi, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
-            thresh = cv2.resize(thresh, (32, 32), interpolation=cv2.INTER_CUBIC)
-            thresh = thresh.astype("float32") / 255.0
-            thresh = np.expand_dims(thresh, axis=-1)
-            thresh = thresh.reshape(1, 32, 32, 1)
-            
-            # Predict the character
-            pred = model.predict(thresh)
-            pred_label = LB.inverse_transform(pred)
-            characters.append(pred_label[0])  # Add the predicted character to the list
-
-    return characters
-
-def get_word(letters):
+@app.post("/predict/")
+async def predict(file: UploadFile = File(...)):
     """
-    Joins the list of individual characters into a single word.
+    Endpoint to upload an image and get word prediction.
+    This also returns the image with a bounding box around the detected text.
     """
-    word = "".join(letters)
-    return word
+    try:
+        # Save the uploaded file
+        image_path = os.path.join(UPLOAD_DIR, file.filename)
+        with open(image_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Extract characters and predict the word
+        characters = extract_characters(image_path)
+        word = get_word(characters)  # Use the get_word function to join the characters
+        
+        # Example of mock bounding boxes (replace with actual bounding box detection logic)
+        # In practice, you would detect bounding boxes for each character or word
+        bbox = [(50, 50, 200, 50)]  # Example: [x, y, width, height]
+        
+        # Draw bounding box on the image
+        modified_image_path = draw_bounding_box(image_path, bbox)
+
+        # Return the modified image file with a predicted word
+        return JSONResponse(content={
+            "predicted_word": word,
+            "image_url": f"/images/{os.path.basename(modified_image_path)}"
+        })
+
+    except Exception as e:
+        # Log the error for debugging
+        print(f"Error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# Route to serve the modified image
+@app.get("/images/{image_name}")
+async def get_image(image_name: str):
+    image_path = os.path.join(UPLOAD_DIR, image_name)
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(image_path)
+
+# Optionally, a health check endpoint
+@app.get("/health/")
+async def health_check():
+    return {"status": "healthy"}
