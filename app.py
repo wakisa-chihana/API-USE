@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
 import cv2
-from model import extract_characters, get_word  # Import necessary functions for prediction
+from model import extract_characters, get_word, detect_bounding_boxes  # Import necessary functions for prediction
 
 # Initialize FastAPI
 app = FastAPI()
@@ -68,12 +68,11 @@ async def predict(file: UploadFile = File(...)):
         characters = extract_characters(image_path)
         word = get_word(characters)  # Use the get_word function to join the characters
         
-        # Example of mock bounding boxes (replace with actual bounding box detection logic)
-        # In practice, you would detect bounding boxes for each character or word
-        bbox = [(50, 50, 200, 50)]  # Example: [x, y, width, height]
+        # Detect bounding boxes for the detected characters/words (Replace with actual detection)
+        bboxes = detect_bounding_boxes(image_path)  # This should return a list of bounding boxes
         
         # Draw bounding box on the image
-        modified_image_path = draw_bounding_box(image_path, bbox)
+        modified_image_path = draw_bounding_box(image_path, bboxes)
 
         # Return the modified image file with a predicted word
         return JSONResponse(content={
