@@ -1,5 +1,5 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
@@ -75,20 +75,24 @@ async def predict(file: UploadFile = File(...)):
         # Draw bounding box on the image
         modified_image_path = draw_bounding_box(image_path, bbox)
 
-        # Open the modified image to send back
-        with open(modified_image_path, "rb") as img_file:
-            img_bytes = img_file.read()
-        
-        # Send the modified image back along with the predicted word
+        # Return the modified image file with a predicted word
         return JSONResponse(content={
             "predicted_word": word,
-            "image": img_bytes
+            "image_url": f"/images/{os.path.basename(modified_image_path)}"
         })
 
     except Exception as e:
         # Log the error for debugging
         print(f"Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# Route to serve the modified image
+@app.get("/images/{image_name}")
+async def get_image(image_name: str):
+    image_path = os.path.join(UPLOAD_DIR, image_name)
+    if not os.path.exists(image_path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    return FileResponse(image_path)
 
 # Optionally, a health check endpoint
 @app.get("/health/")
