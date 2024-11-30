@@ -76,34 +76,3 @@ def get_word(letters):
     """
     word = "".join(letters)
     return word
-
-def detect_bounding_boxes(image_path):
-    """
-    Detects bounding boxes around words or characters in the image.
-    
-    Args:
-    - image_path (str): Path to the uploaded image.
-    
-    Returns:
-    - list: List of bounding boxes (x, y, w, h) for each detected word/character.
-    """
-    # Load the image and convert to grayscale
-    image = cv2.imread(image_path)
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    
-    # Thresholding to binarize the image
-    _, thresh = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY_INV)
-    
-    # Dilate to fill gaps and make contours easier to detect
-    dilated = cv2.dilate(thresh, None, iterations=2)
-
-    # Find contours
-    cnts, _ = cv2.findContours(dilated.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
-    bounding_boxes = []
-    for c in cnts:
-        if cv2.contourArea(c) > 10:  # Ignore small contours
-            x, y, w, h = cv2.boundingRect(c)
-            bounding_boxes.append((x, y, w, h))  # Add bounding box to the list
-
-    return bounding_boxes
