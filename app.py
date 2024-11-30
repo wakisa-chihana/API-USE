@@ -1,10 +1,10 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 import shutil
 import os
 import cv2
-from model import extract_characters, get_word, detect_bounding_boxes  # Import necessary functions for prediction
+from model import extract_characters, get_word  # Import necessary functions for prediction
 
 # Initialize FastAPI
 app = FastAPI()
@@ -68,30 +68,27 @@ async def predict(file: UploadFile = File(...)):
         characters = extract_characters(image_path)
         word = get_word(characters)  # Use the get_word function to join the characters
         
-        # Detect bounding boxes for the detected characters/words (Replace with actual detection)
-        bboxes = detect_bounding_boxes(image_path)  # This should return a list of bounding boxes
+        # Example of mock bounding boxes (replace with actual bounding box detection logic)
+        # In practice, you would detect bounding boxes for each character or word
+        bbox = [(50, 50, 200, 50)]  # Example: [x, y, width, height]
         
         # Draw bounding box on the image
-        modified_image_path = draw_bounding_box(image_path, bboxes)
+        modified_image_path = draw_bounding_box(image_path, bbox)
 
-        # Return the modified image file with a predicted word
+        # Open the modified image to send back
+        with open(modified_image_path, "rb") as img_file:
+            img_bytes = img_file.read()
+        
+        # Send the modified image back along with the predicted word
         return JSONResponse(content={
             "predicted_word": word,
-            "image_url": f"/images/{os.path.basename(modified_image_path)}"
+            "image": img_bytes
         })
 
     except Exception as e:
         # Log the error for debugging
         print(f"Error: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
-
-# Route to serve the modified image
-@app.get("/images/{image_name}")
-async def get_image(image_name: str):
-    image_path = os.path.join(UPLOAD_DIR, image_name)
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="Image not found")
-    return FileResponse(image_path)
 
 # Optionally, a health check endpoint
 @app.get("/health/")
